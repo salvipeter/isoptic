@@ -63,16 +63,15 @@ double area_concave(const TriMesh &mesh, const std::vector<Normals> &normals, co
     if (isSilhouette(mesh[i], normals[i], p))
       silhouette.insert(i);
 
-  double result = 0.0;
-  for (auto i = silhouette.begin(); i != silhouette.end(); ++i)
-    for (auto j = i; j != silhouette.end(); ++j) {
-      const auto &q1 = mesh[*i], &q2 = mesh[*j];
-      auto d = std::acos((q1 - p).normalize() * (q2 - p).normalize());
-      if (d > result)
+  double result = 1.0;
+  for (auto i = silhouette.begin(); i != silhouette.end(); ++i) {
+    auto v = (mesh[*i] - p).normalize();
+    for (auto j = i; j != silhouette.end(); ++j)
+      if (auto d = v * (mesh[*j] - p).normalize(); d < result)
         result = d;
-    } 
+  }
 
-  return result;
+  return std::acos(result);
 }
 
 std::array<Point3D, 2> boundingBox(const TriMesh &mesh, double scaling) {
