@@ -4,8 +4,9 @@
 
 using namespace Geometry;
 
-double angle(const TriMesh &mesh, const Point3D &p) {
-  // As in: G. Csima, J. Szirmai: Isoptic surfaces of polyhedra. CAGD 47, pp. 55-60, 2016.
+double area(const TriMesh &mesh, const Point3D &p) {
+  // As in: G. Csima, J. Szirmai: Isoptic surfaces of polyhedra.
+  //        CAGD 47, pp. 55-60, 2016.
   double result = 0.0;
   for (const auto &tri : mesh.triangles()) {
     double Omega = 2 * M_PI;
@@ -20,6 +21,19 @@ double angle(const TriMesh &mesh, const Point3D &p) {
     result += Omega;
   }
   return result / 2;
+}
+
+double area_concave(const TriMesh &mesh, const Point3D &p) {
+  // Alternative definition, also for concave meshes
+  // (Slow, O(n^2) algorithm - should compute the silhouette points first)
+  double result = 0.0;
+  for (auto q1 = mesh.points().begin(); q1 != mesh.points().end(); ++q1)
+    for (auto q2 = q1 + 1; q2 != mesh.points().end(); ++q2) {
+      auto d = std::acos((*q1 - p).normalize() * (*q2 - p).normalize());
+      if (d > result)
+        result = d;
+    } 
+  return result;
 }
 
 std::array<Point3D, 2> boundingBox(const TriMesh &mesh, double scaling) {
@@ -55,7 +69,7 @@ int main(int argc, char **argv) {
     alpha = std::strtod(argv[4], nullptr);
   
   auto f = [&](const DualContouring::Point3D &p) {
-    return angle(mesh, { p[0], p[1], p[2] });
+    return area_concave(mesh, { p[0], p[1], p[2] });
   };
   auto bbox = boundingBox(mesh, scaling);
   std::array<DualContouring::Point3D, 2> dc_bbox = { {
