@@ -1,4 +1,5 @@
 #include <cmath>
+#include <unordered_set>
 #include <dc.hh>
 #include <geometry.hh>
 
@@ -23,16 +24,54 @@ double area(const TriMesh &mesh, const Point3D &p) {
   return result / 2;
 }
 
-double area_concave(const TriMesh &mesh, const Point3D &p) {
+using Normals = std::vector<Vector3D>;
+
+std::vector<Normals> findNormals(const TriMesh &mesh) {
+  std::vector<Normals> result(mesh.points().size());
+  for (const auto &tri : mesh.triangles()) {
+    auto n = ((mesh[tri[1]] - mesh[tri[0]]) ^ (mesh[tri[2]] - mesh[tri[0]])).normalize();
+    for (size_t i = 0; i < 3; ++i)
+      result[tri[i]].push_back(n);
+  }
+  return result;
+}
+
+bool isSilhouette(const Point3D &q, const Normals &ns, const Point3D &p) {
+  if (ns.size() == 1)
+    return true;
+  auto u = q - p;
+  char c = 0;
+  for (const auto &n : ns) {
+    if (n * u < 0) {
+      if (c == 2)
+        return true;
+      c = 1;
+    } else {
+      if (c == 1)
+        return true;
+      c = 2;
+    }
+  }
+  return false;
+}
+
+double area_concave(const TriMesh &mesh, const std::vector<Normals> &normals, const Point3D &p) {
   // Alternative definition, also for concave meshes
-  // (Slow, O(n^2) algorithm - should compute the silhouette points first)
+  std::unordered_set<size_t> silhouette;
+  size_t n = mesh.points().size();
+  for (size_t i = 0; i < n; ++i)
+    if (isSilhouette(mesh[i], normals[i], p))
+      silhouette.insert(i);
+
   double result = 0.0;
-  for (auto q1 = mesh.points().begin(); q1 != mesh.points().end(); ++q1)
-    for (auto q2 = q1 + 1; q2 != mesh.points().end(); ++q2) {
-      auto d = std::acos((*q1 - p).normalize() * (*q2 - p).normalize());
+  for (auto i = silhouette.begin(); i != silhouette.end(); ++i)
+    for (auto j = i; j != silhouette.end(); ++j) {
+      const auto &q1 = mesh[*i], &q2 = mesh[*j];
+      auto d = std::acos((q1 - p).normalize() * (q2 - p).normalize());
       if (d > result)
         result = d;
     } 
+
   return result;
 }
 
@@ -67,9 +106,11 @@ int main(int argc, char **argv) {
   double alpha = M_PI / 2;
   if (argc >= 5)
     alpha = std::strtod(argv[4], nullptr);
-  
+
+  auto normals = findNormals(mesh);
   auto f = [&](const DualContouring::Point3D &p) {
-    return area_concave(mesh, { p[0], p[1], p[2] });
+    // return area(mesh, { p[0], p[1], p[2] });
+    return area_concave(mesh, normals, { p[0], p[1], p[2] });
   };
   auto bbox = boundingBox(mesh, scaling);
   std::array<DualContouring::Point3D, 2> dc_bbox = { {
