@@ -55,7 +55,7 @@ bool isSilhouette(const Point3D &q, const Normals &ns, const Point3D &p) {
   return false;
 }
 
-double area_concave(const TriMesh &mesh, const std::vector<Normals> &normals, const Point3D &p) {
+double max_distance(const TriMesh &mesh, const std::vector<Normals> &normals, const Point3D &p) {
   // Alternative definition, also for concave meshes
   std::unordered_set<size_t> silhouette;
   size_t n = mesh.points().size();
@@ -109,7 +109,7 @@ int main(int argc, char **argv) {
   auto normals = findNormals(mesh);
   auto f = [&](const DualContouring::Point3D &p) {
     // return area(mesh, { p[0], p[1], p[2] });
-    return area_concave(mesh, normals, { p[0], p[1], p[2] });
+    return max_distance(mesh, normals, { p[0], p[1], p[2] });
   };
   auto bbox = boundingBox(mesh, scaling);
   std::array<DualContouring::Point3D, 2> dc_bbox = { {
